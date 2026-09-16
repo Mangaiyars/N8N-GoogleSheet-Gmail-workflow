@@ -1,0 +1,200 @@
+{
+  "name": "Googlesheet → gmail (#n8n-automation)",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        -32
+      ],
+      "id": "2ec1b8b0-8bae-42a0-bcce-3caecb22d017",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "19QjsvNF-yrGAKnPYevel7ul5g1XxRIkYdBUWfV8LIwc",
+          "mode": "list",
+          "cachedResultName": "Demand-Status",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19QjsvNF-yrGAKnPYevel7ul5g1XxRIkYdBUWfV8LIwc/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "demands",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/19QjsvNF-yrGAKnPYevel7ul5g1XxRIkYdBUWfV8LIwc/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -144,
+        -32
+      ],
+      "id": "3333b65d-f3f0-4bb0-8e77-4b7a6d9ae67d",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YFdxRop5TwIR6Cch",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const clean = v => String(v ?? '').trim();\n\nconst rows = $input.all()\n  .map(item => item.json)\n  .filter(r => clean(r.DemandID) !== '');\n\nif (rows.length === 0) {\n  return [{ json: { hasData: false, rowCount: 0 } }];\n}\n\nconst esc = v => clean(v).replace(/[&<>\"]/g, c =>\n  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[c]));\n\nconst cell = 'padding:8px 12px;border:1px solid #ddd;';\nconst headers = ['Date-created', 'DemandID', 'Primary skill', 'Region', 'Location-type', 'Location', 'Status'];\n\nconst headerHtml = headers.map(h => `<th style=\"${cell}\">${h}</th>`).join('');\nconst rowsHtml = rows.map(r =>\n  `<tr>${headers.map(h => `<td style=\"${cell}\">${esc(r[h])}</td>`).join('')}</tr>`\n).join('');\n\nconst counts = {};\nrows.forEach(r => { const s = clean(r.Status); counts[s] = (counts[s] || 0) + 1; });\nconst summary = Object.entries(counts).map(([s, n]) => `${s}: ${n}`).join(' | ');\n\nconst body = `\n<div style=\"font-family:Arial,sans-serif;font-size:14px;color:#222;\">\n  <p>Hi,</p>\n  <p>Here is the latest demand status (${rows.length} open demands).</p>\n  <p><b>Summary:</b> ${esc(summary)}</p>\n  <table style=\"border-collapse:collapse;\">\n    <thead style=\"background:#f2f2f2;\"><tr>${headerHtml}</tr></thead>\n    <tbody>${rowsHtml}</tbody>\n  </table>\n  <p>Regards,<br>Your Automation Bot</p>\n</div>`;\n\nreturn [{\n  json: {\n    hasData: true,\n    rowCount: rows.length,\n    subject: `Demand Status Update – ${rows.length} demands – ${$now.toFormat('dd LLL yyyy')}`,\n    body\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        80,
+        -32
+      ],
+      "id": "5e1d0922-695c-41d5-94e5-c0a8ae0b24b5",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ec1cc9a9-bd51-4fa4-b7ef-d2e3de481dcc",
+              "leftValue": "={{ $json.hasData }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        304,
+        -32
+      ],
+      "id": "403dbdbe-4678-41ca-bbb0-ee487fa4a80a",
+      "name": "Has data?"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        528,
+        64
+      ],
+      "id": "c3169535-3a37-415e-adda-72142d2a0e98",
+      "name": "Skipped - Sheet Empty"
+    },
+    {
+      "parameters": {
+        "sendTo": "your-email@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.body }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        528,
+        -128
+      ],
+      "id": "8e489565-c26a-4470-80d7-a99994fdae01",
+      "name": "Send a message",
+      "webhookId": "04e13d20-6567-4826-ac46-369f6e81ae6f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "zRIjA7eQIZAuOOWy",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Has data?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has data?": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Skipped - Sheet Empty",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3589da46-b848-4954-b458-7a01d4057225",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5efa093d60a3cea706be16e2e9c4d6d224389bb49633183f7cc859fbfdbb1d7c"
+  },
+  "nodeGroups": [],
+  "id": "ymChC30rQa1p1ql2",
+  "tags": []
+}
